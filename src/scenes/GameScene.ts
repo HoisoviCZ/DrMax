@@ -273,7 +273,7 @@ export class GameScene extends Phaser.Scene {
     const body = this.matter.add.image(x, y, texKey, undefined, {
       restitution: 0.05,
       friction: 0.95,
-      frictionAir: 0.012,
+      frictionAir: 0.04,
       density: 0.0015,
       label: `box:${type.category}:${type.label}`,
       chamfer: { radius: 2 },
