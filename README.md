@@ -190,7 +190,23 @@ The game runs entirely client-side, so anyone with browser DevTools can call `su
 
 ### Resetting / managing entries
 
-Delete rows in the Supabase SQL editor or table editor. Add an admin RLS policy or use the service role key if you want a "wipe weekly" job — keep that key out of the client.
+**Local mode** — open the game, hit F12 to open DevTools, switch to the **Console** tab, type:
+
+```js
+resetLeaderboard()
+```
+
+The board is cleared on this device. Refresh the page to see the empty leaderboard.
+
+**Online (Supabase) mode** — in the Supabase dashboard go to **SQL Editor** and run:
+
+```sql
+truncate table public.scores restart identity;       -- wipe everything
+delete from public.scores where created_at < now() - interval '7 days';  -- weekly cleanup
+delete from public.scores where initials = 'XYZ';    -- targeted removal
+```
+
+Add a service-role-key cron job for automatic weekly resets if you want them — keep the service-role key out of the client (it's the admin key, RLS does not apply to it).
 
 ## Roadmap
 

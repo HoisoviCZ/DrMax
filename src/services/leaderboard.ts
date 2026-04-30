@@ -129,3 +129,22 @@ export function qualifiesForTop(score: number, leaderboard: ScoreEntry[]): boole
   const lowest = leaderboard[leaderboard.length - 1]?.score ?? 0;
   return score > lowest;
 }
+
+/** Wipe the local (this-device) leaderboard. Has no effect on Supabase mode. */
+export function resetLocalLeaderboard(): void {
+  localStorage.removeItem(LOCAL_STORAGE_KEY);
+}
+
+// Expose a global helper so a player can clear their local leaderboard from DevTools:
+//   resetLeaderboard()
+// Has no effect on the Supabase-backed table — wipe that with `truncate scores` in the
+// Supabase SQL editor, or `delete from scores where ...` for selective removal.
+if (typeof window !== 'undefined') {
+  (window as unknown as { resetLeaderboard?: () => string }).resetLeaderboard = () => {
+    if (leaderboardMode === 'supabase') {
+      return 'Online (Supabase) mode is active — clear the table from the Supabase dashboard instead.';
+    }
+    resetLocalLeaderboard();
+    return 'Local leaderboard cleared. Refresh the page to see the empty board.';
+  };
+}

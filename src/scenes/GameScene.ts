@@ -61,6 +61,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   preload() {
+    this.load.image('drmax-logo.webp', 'assets/logo.webp');
+    this.load.image('drmax-logo.png', 'assets/logo.png');
+
     const seen = new Set<string>();
     for (const t of BOX_TYPES) {
       if (!t.imageKey || seen.has(t.imageKey)) continue;
@@ -69,8 +72,14 @@ export class GameScene extends Phaser.Scene {
       this.load.image(`${t.imageKey}.png`, `products/${t.imageKey}.png`);
     }
     this.load.on('loaderror', () => {
-      // Missing optional product image — silently fall back to .png or procedural placeholder.
+      // Missing optional asset — silently fall back to procedural placeholder / text.
     });
+  }
+
+  private getLogoKey(): string | null {
+    if (this.textures.exists('drmax-logo.webp')) return 'drmax-logo.webp';
+    if (this.textures.exists('drmax-logo.png')) return 'drmax-logo.png';
+    return null;
   }
 
   create() {
@@ -197,12 +206,22 @@ export class GameScene extends Phaser.Scene {
   private drawHUD() {
     this.add.rectangle(GAME_WIDTH / 2, HUD_HEIGHT / 2, GAME_WIDTH, HUD_HEIGHT, 0x1f2937).setDepth(500);
 
-    this.add.text(20, HUD_HEIGHT / 2, 'DrMax Pharmacy', {
-      fontFamily: 'system-ui, sans-serif',
-      fontSize: '20px',
-      color: '#ffffff',
-      fontStyle: 'bold',
-    }).setOrigin(0, 0.5).setDepth(501);
+    const logoKey = this.getLogoKey();
+    if (logoKey) {
+      const logo = this.add.image(20, HUD_HEIGHT / 2, logoKey)
+        .setOrigin(0, 0.5)
+        .setDepth(501);
+      const targetH = HUD_HEIGHT - 14;
+      const scale = targetH / logo.height;
+      logo.setScale(scale);
+    } else {
+      this.add.text(20, HUD_HEIGHT / 2, 'DrMax Pharmacy', {
+        fontFamily: 'system-ui, sans-serif',
+        fontSize: '20px',
+        color: '#ffffff',
+        fontStyle: 'bold',
+      }).setOrigin(0, 0.5).setDepth(501);
+    }
 
     this.scoreText = this.add.text(GAME_WIDTH - 20, HUD_HEIGHT / 2, 'Score: 0', {
       fontFamily: 'system-ui, sans-serif',
@@ -404,6 +423,11 @@ export class GameScene extends Phaser.Scene {
       this.score += points;
       this.scoreText.setText(`Score: ${this.score}`);
       this.flashAt(entry.body.x, entry.body.y, '#22c55e', `+${points}`);
+      // Lock the placed box: it becomes a permanent part of the shelf, not draggable.
+      // Prevents the cheat where a box is briefly dropped onto the right shelf to claim
+      // the score and then dragged off.
+      entry.body.setStatic(true);
+      entry.body.setTint(0xd9f7d9);
     } else {
       this.score = Math.max(0, this.score - 5);
       this.lives -= 1;
