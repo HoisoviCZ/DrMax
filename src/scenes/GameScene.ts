@@ -6,7 +6,7 @@ import {
   fetchTopScores,
   submitScore,
   qualifiesForTop,
-  isLeaderboardEnabled,
+  leaderboardMode,
   type ScoreEntry,
 } from '../services/leaderboard';
 
@@ -505,23 +505,6 @@ export class GameScene extends Phaser.Scene {
     const leftX = GAME_WIDTH * 0.27;
     const playAgainY = GAME_HEIGHT - 70;
 
-    if (!isLeaderboardEnabled) {
-      this.add.text(leftX, GAME_HEIGHT / 2 - 20, `Best score (this device):\n${this.bestScore}`, {
-        fontFamily: 'system-ui, sans-serif',
-        fontSize: '18px',
-        color: '#9ca3af',
-        align: 'center',
-      }).setOrigin(0.5).setDepth(1001);
-      this.add.text(leftX, GAME_HEIGHT / 2 + 40, 'Online leaderboard not configured\n(see README → Supabase)', {
-        fontFamily: 'system-ui, sans-serif',
-        fontSize: '12px',
-        color: '#6b7280',
-        align: 'center',
-      }).setOrigin(0.5).setDepth(1001);
-      this.addPlayAgainButton(leftX, playAgainY);
-      return;
-    }
-
     const loadingText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Loading leaderboard…', {
       fontFamily: 'system-ui, sans-serif',
       fontSize: '18px',
@@ -726,6 +709,16 @@ export class GameScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(1001);
     this.leaderboardPanelObjects.push(titleObj);
 
+    const modeLabel = leaderboardMode === 'supabase'
+      ? '🌐 online · all players'
+      : '💾 local · this device only';
+    const modeObj = this.add.text(x, top + 18, modeLabel, {
+      fontFamily: 'system-ui, sans-serif',
+      fontSize: '11px',
+      color: '#9ca3af',
+    }).setOrigin(0.5).setDepth(1001);
+    this.leaderboardPanelObjects.push(modeObj);
+
     if (scores.length === 0) {
       const empty = this.add.text(x, top + 60, 'No scores yet — be the first!', {
         fontFamily: 'system-ui, sans-serif',
@@ -736,7 +729,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    const headerY = top + 38;
+    const headerY = top + 50;
     const header = this.add.text(x, headerY, '##  INI    SCORE  LV', {
       fontFamily: 'monospace',
       fontSize: '13px',

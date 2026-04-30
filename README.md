@@ -16,8 +16,8 @@ A web game where you stock medicine boxes onto color-coded pharmacy shelves. Bui
 - 6 box shapes: small / medium / large carton, blister pack, bottle, spray
 - Score points × current level for correct placements; lose a heart on a wrong shelf or a box dropped past the floor
 - **Endless mode** with rising difficulty (every 18 s a new level: faster spawn, more box types unlocked)
-- Game ends after 5 wrong placements. Best score saved in `localStorage`.
-- **Online leaderboard** (top 20, opt-in via Supabase — see below): if your run qualifies, you can submit 3-letter initials retro-arcade style.
+- Game ends after 5 wrong placements.
+- **Top-20 leaderboard with retro 3-letter initials** — works locally out-of-the-box (per-browser `localStorage`) and can be upgraded to a shared online table by configuring Supabase (see below).
 
 ## Local development
 
@@ -97,20 +97,25 @@ public/
 - `frictionAir` in `createBox` — how much boxes drift down vs. fall fast
 - `pickBoxForLevel()` in `boxes.ts` — which shapes/categories unlock at which level
 
-## Online leaderboard (Supabase)
+## Leaderboard (local + optional online)
 
-The game ships with an optional online leaderboard that shows the **top 20 scores** across all players. Only scores that qualify for the top 20 are eligible to submit; players enter their **3-letter initials** retro-arcade-style and the entry shows up in the table.
+The game has a **top-20 leaderboard with retro 3-letter initials**. It works in two modes, picked automatically:
+
+- **💾 Local mode (default, zero setup)** — top 20 lives in the browser's `localStorage`. Each device has its own table. Perfect for "play it on my laptop and send a screenshot to colleagues" use cases.
+- **🌐 Online mode (opt-in)** — set up a free Supabase project (see below) and the leaderboard becomes shared across everyone who plays. Same UI, same flow.
 
 ### How it works at runtime
 
-- On game over, the game fetches the current top 20 from Supabase
+- On game over, the game fetches the current top 20 (from `localStorage` or Supabase, whichever is configured)
 - If your final score beats the lowest entry (or the table has < 20 rows), you get a **NEW HIGH SCORE!** banner and an initials prompt
 - After submit, the leaderboard refreshes and your row is highlighted
-- If Supabase env vars are missing or the request fails, the game silently degrades to local-only mode (best score in `localStorage`) — nothing else breaks
+- A small label under the LEADERBOARD title tells you which mode is active
 
-### Setup steps
+### Switching from local to online
 
-You need these once to enable the leaderboard:
+Just configure Supabase as described in the next section. The first reload after env vars are set switches the leaderboard to Supabase. Existing local scores stay in `localStorage` (they're not migrated automatically — clear with browser DevTools if you want a clean slate).
+
+### Online mode (Supabase) setup
 
 #### 1. Create a Supabase project
 
