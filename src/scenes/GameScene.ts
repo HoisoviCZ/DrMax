@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { CATEGORIES, CATEGORY_ORDER, type CategoryId } from '../config/categories';
-import { pickBoxForLevel, type BoxType } from '../config/boxes';
+import { BOX_TYPES, pickBoxForLevel, type BoxType } from '../config/boxes';
 import { GAME_WIDTH, GAME_HEIGHT } from '../main';
 
 interface BoxEntry {
@@ -45,6 +45,15 @@ export class GameScene extends Phaser.Scene {
 
   constructor() {
     super('GameScene');
+  }
+
+  preload() {
+    const seen = new Set<string>();
+    for (const t of BOX_TYPES) {
+      if (!t.imageKey || seen.has(t.imageKey)) continue;
+      seen.add(t.imageKey);
+      this.load.image(t.imageKey, `products/${t.imageKey}.png`);
+    }
   }
 
   create() {
@@ -100,7 +109,7 @@ export class GameScene extends Phaser.Scene {
     for (let x = 30; x < GAME_WIDTH; x += 24) {
       this.add.rectangle(x, SPAWN_Y, 14, 4, 0x9ca3af);
     }
-    this.add.text(20, SPAWN_Y - 22, 'PŘÍJEM ZBOŽÍ', {
+    this.add.text(20, SPAWN_Y - 22, 'INCOMING', {
       fontFamily: 'system-ui, sans-serif',
       fontSize: '11px',
       color: '#374151',
@@ -166,14 +175,14 @@ export class GameScene extends Phaser.Scene {
   private drawHUD() {
     this.add.rectangle(GAME_WIDTH / 2, HUD_HEIGHT / 2, GAME_WIDTH, HUD_HEIGHT, 0x1f2937).setDepth(500);
 
-    this.add.text(20, HUD_HEIGHT / 2, 'DrMax Lékárna', {
+    this.add.text(20, HUD_HEIGHT / 2, 'DrMax Pharmacy', {
       fontFamily: 'system-ui, sans-serif',
       fontSize: '20px',
       color: '#ffffff',
       fontStyle: 'bold',
     }).setOrigin(0, 0.5).setDepth(501);
 
-    this.scoreText = this.add.text(GAME_WIDTH - 20, HUD_HEIGHT / 2, 'Skóre: 0', {
+    this.scoreText = this.add.text(GAME_WIDTH - 20, HUD_HEIGHT / 2, 'Score: 0', {
       fontFamily: 'system-ui, sans-serif',
       fontSize: '20px',
       color: '#fbbf24',
@@ -211,6 +220,9 @@ export class GameScene extends Phaser.Scene {
   };
 
   private getBoxTextureKey(type: BoxType): string {
+    if (type.imageKey && this.textures.exists(type.imageKey)) {
+      return type.imageKey;
+    }
     const key = `box-${type.shape}-${type.category}-${type.label}`;
     if (this.textures.exists(key)) return key;
 
@@ -269,6 +281,7 @@ export class GameScene extends Phaser.Scene {
 
   private createBox(x: number, y: number, type: BoxType) {
     const texKey = this.getBoxTextureKey(type);
+    const usingExternal = texKey === type.imageKey;
 
     const body = this.matter.add.image(x, y, texKey, undefined, {
       restitution: 0.05,
@@ -277,7 +290,12 @@ export class GameScene extends Phaser.Scene {
       density: 0.0015,
       label: `box:${type.category}:${type.label}`,
       chamfer: { radius: 2 },
+      shape: { type: 'rectangle', width: type.width, height: type.height },
     });
+
+    if (usingExternal) {
+      body.setDisplaySize(type.width, type.height);
+    }
 
     body.setBounce(0.05);
     body.setFriction(0.95);
@@ -357,14 +375,14 @@ export class GameScene extends Phaser.Scene {
     if (correct) {
       const points = 10 * this.level;
       this.score += points;
-      this.scoreText.setText(`Skóre: ${this.score}`);
+      this.scoreText.setText(`Score: ${this.score}`);
       this.flashAt(entry.body.x, entry.body.y, '#22c55e', `+${points}`);
     } else {
       this.score = Math.max(0, this.score - 5);
       this.lives -= 1;
-      this.scoreText.setText(`Skóre: ${this.score}`);
+      this.scoreText.setText(`Score: ${this.score}`);
       this.livesText.setText(this.formatLives());
-      this.flashAt(entry.body.x, entry.body.y, '#ef4444', 'Špatná police!');
+      this.flashAt(entry.body.x, entry.body.y, '#ef4444', 'Wrong shelf!');
       this.tweens.add({
         targets: [entry.body, entry.label],
         alpha: 0,
@@ -381,7 +399,7 @@ export class GameScene extends Phaser.Scene {
     entry.judged = true;
     this.lives -= 1;
     this.livesText.setText(this.formatLives());
-    this.flashAt(entry.body.x, entry.body.y, '#ef4444', 'Mimo regál!');
+    this.flashAt(entry.body.x, entry.body.y, '#ef4444', 'Off the shelf!');
     if (entry.label.active) entry.label.destroy();
     if (entry.body.active) entry.body.destroy();
     if (this.lives <= 0) this.endGame();
@@ -444,26 +462,26 @@ export class GameScene extends Phaser.Scene {
 
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.75).setDepth(1000);
 
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 110, 'KONEC HRY', {
+    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 110, 'GAME OVER', {
       fontFamily: 'system-ui, sans-serif',
       fontSize: '64px',
       color: '#ffffff',
       fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(1001);
 
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 30, `Skóre: ${this.score}   ·   Level: ${this.level}`, {
+    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 30, `Score: ${this.score}   ·   Level: ${this.level}`, {
       fontFamily: 'system-ui, sans-serif',
       fontSize: '28px',
       color: '#fbbf24',
     }).setOrigin(0.5).setDepth(1001);
 
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 10, `Nejlepší skóre: ${this.bestScore}`, {
+    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 10, `Best score: ${this.bestScore}`, {
       fontFamily: 'system-ui, sans-serif',
       fontSize: '18px',
       color: '#9ca3af',
     }).setOrigin(0.5).setDepth(1001);
 
-    const btn = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 80, '▶  Hrát znovu', {
+    const btn = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 80, '▶  Play again', {
       fontFamily: 'system-ui, sans-serif',
       fontSize: '24px',
       color: '#1f2937',

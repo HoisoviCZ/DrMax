@@ -8,6 +8,11 @@ export interface BoxType {
   height: number;
   label: string;
   category: CategoryId;
+  /**
+   * Optional asset key. If a PNG exists at `public/products/{imageKey}.png`,
+   * it overrides the procedural placeholder. Falls back silently if missing.
+   */
+  imageKey?: string;
 }
 
 const SHAPE_DIMS: Record<BoxShape, { width: number; height: number }> = {
@@ -19,37 +24,42 @@ const SHAPE_DIMS: Record<BoxShape, { width: number; height: number }> = {
   spray: { width: 36, height: 100 },
 };
 
-function box(shape: BoxShape, label: string, category: CategoryId): BoxType {
-  return { shape, ...SHAPE_DIMS[shape], label, category };
+function box(
+  shape: BoxShape,
+  label: string,
+  category: CategoryId,
+  imageKey?: string,
+): BoxType {
+  return { shape, ...SHAPE_DIMS[shape], label, category, imageKey };
 }
 
 export const BOX_TYPES: BoxType[] = [
   // OTC
-  box('small', 'Paralen', 'otc'),
-  box('small', 'Acylpyrin', 'otc'),
-  box('medium', 'Ibalgin', 'otc'),
-  box('medium', 'Nurofen', 'otc'),
-  box('large', 'Smecta', 'otc'),
-  box('blister', 'Aspirin', 'otc'),
-  box('bottle', 'Stoptussin', 'otc'),
-  box('spray', 'Olynth', 'otc'),
+  box('small', 'Paralen', 'otc', 'paralen'),
+  box('small', 'Acylpyrin', 'otc', 'acylpyrin'),
+  box('medium', 'Ibalgin', 'otc', 'ibalgin'),
+  box('medium', 'Nurofen', 'otc', 'nurofen'),
+  box('large', 'Smecta', 'otc', 'smecta'),
+  box('blister', 'Aspirin', 'otc', 'aspirin'),
+  box('bottle', 'Stoptussin', 'otc', 'stoptussin'),
+  box('spray', 'Olynth', 'otc', 'olynth'),
 
   // Rx
-  box('small', 'Atorvastatin', 'rx'),
-  box('medium', 'Metformin', 'rx'),
-  box('blister', 'Warfarin', 'rx'),
-  box('bottle', 'Augmentin', 'rx'),
+  box('small', 'Atorvastatin', 'rx', 'atorvastatin'),
+  box('medium', 'Metformin', 'rx', 'metformin'),
+  box('blister', 'Warfarin', 'rx', 'warfarin'),
+  box('bottle', 'Augmentin', 'rx', 'augmentin'),
 
   // Cold chain
-  box('small', 'Insulin', 'cold'),
-  box('bottle', 'Vakcína', 'cold'),
-  box('medium', 'Probiotika', 'cold'),
+  box('small', 'Insulin', 'cold', 'insulin'),
+  box('bottle', 'Vaccine', 'cold', 'vaccine'),
+  box('medium', 'Probiotics', 'cold', 'probiotics'),
 
   // Supplements
-  box('medium', 'Vitamín D', 'supplement'),
-  box('large', 'Magnesium', 'supplement'),
-  box('bottle', 'Omega 3', 'supplement'),
-  box('small', 'Zinek', 'supplement'),
+  box('medium', 'Vitamin D', 'supplement', 'vitamin-d'),
+  box('large', 'Magnesium', 'supplement', 'magnesium'),
+  box('bottle', 'Omega 3', 'supplement', 'omega-3'),
+  box('small', 'Zinc', 'supplement', 'zinc'),
 ];
 
 export function pickBoxForLevel(level: number): BoxType {

@@ -11,31 +11,31 @@ export interface Category {
 export const CATEGORIES: Record<CategoryId, Category> = {
   cold: {
     id: 'cold',
-    name: 'Chladnička',
+    name: 'Cold Chain',
     color: 0xe53935,
     hex: '#e53935',
-    description: 'Léky uchovávané při 2-8 °C',
+    description: 'Stored at 2-8 °C',
   },
   rx: {
     id: 'rx',
-    name: 'Na předpis',
+    name: 'Prescription',
     color: 0x1e88e5,
     hex: '#1e88e5',
-    description: 'Pouze na lékařský předpis',
+    description: 'Requires a doctor’s prescription',
   },
   otc: {
     id: 'otc',
-    name: 'Volně prodejné',
+    name: 'Over the Counter',
     color: 0x43a047,
     hex: '#43a047',
-    description: 'Bez receptu (OTC)',
+    description: 'No prescription required',
   },
   supplement: {
     id: 'supplement',
-    name: 'Doplňky stravy',
+    name: 'Supplements',
     color: 0xfb8c00,
     hex: '#fb8c00',
-    description: 'Vitamíny a minerály',
+    description: 'Vitamins and minerals',
   },
 };
 

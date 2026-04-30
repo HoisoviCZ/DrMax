@@ -1,75 +1,106 @@
-# DrMax Lékárna — Hra
+# DrMax — Pharmacy Game
 
-Webová hra, ve které rovnáš krabičky s léky do správných regálů. Postavená na **Phaser 3** + **Matter.js** (fyzika) + **TypeScript** + **Vite**.
+A web game where you stock medicine boxes onto color-coded pharmacy shelves. Built with **Phaser 3** + **Matter.js** (physics) + **TypeScript** + **Vite**.
 
-## Herní mechanika
+🎮 **Live demo:** https://hoisovicz.github.io/DrMax/
 
-- Krabičky s léky padají z konvejoru shora
-- Drag & drop: chytíš krabičku myší a přetáhneš na správnou polici
-- 4 barevně označené kategorie regálů:
-  - 🔴 **Chladnička** — léky 2–8 °C
-  - 🔵 **Na předpis** — Rx
-  - 🟢 **Volně prodejné** — OTC
-  - 🟠 **Doplňky stravy**
-- 6 tvarů krabiček: malá / střední / velká kartonová, blistr, lahvička, sprej
-- Volné rovnání s fyzikou — krabičky se mohou převrhnout
-- **Skóre** za správné umístění (× level), **mínus skóre + život** za chybu
-- **Nekonečný režim** s rostoucí obtížností (každých 18 s level up, rychlejší spawn, otevřené nové typy)
-- Hra končí po 5 chybách. Nejlepší skóre se ukládá do `localStorage`.
+## Gameplay
 
-## Lokální vývoj
+- Boxes drop from the conveyor at the top
+- Drag & drop with realistic physics — boxes can topple, stack, and fall
+- 4 color-coded shelf categories:
+  - 🔴 **Cold Chain** — medicines stored at 2-8 °C
+  - 🔵 **Prescription** — Rx
+  - 🟢 **Over the Counter** — OTC
+  - 🟠 **Supplements** — vitamins and minerals
+- 6 box shapes: small / medium / large carton, blister pack, bottle, spray
+- Score points × current level for correct placements; lose a heart on a wrong shelf or a box dropped past the floor
+- **Endless mode** with rising difficulty (every 18 s a new level: faster spawn, more box types unlocked)
+- Game ends after 5 wrong placements. Best score is saved in `localStorage`.
 
-Vyžaduje Node.js 20+.
+## Local development
+
+Requires Node.js 20+.
 
 ```bash
 npm install
-npm run dev      # spustí dev server na http://localhost:5173
-npm run build    # produkční build do dist/
-npm run preview  # náhled produkčního buildu
+npm run dev      # dev server on http://localhost:5173
+npm run build    # production build into dist/
+npm run preview  # preview the production build
 ```
 
-## Deploy na GitHub Pages
+## Deploy to GitHub Pages
 
-Push na `main` automaticky spustí workflow `.github/workflows/deploy.yml`, který:
+A push to `main` automatically triggers `.github/workflows/deploy.yml`, which:
 
-1. Nainstaluje deps (`npm ci`)
-2. Postaví projekt (`npm run build`)
-3. Nahraje `dist/` jako Pages artefakt
-4. Nasadí na GitHub Pages
+1. Installs deps (`npm ci`)
+2. Builds the project (`npm run build`)
+3. Uploads `dist/` as the Pages artifact
+4. Deploys to GitHub Pages
 
-**Před prvním spuštěním** je potřeba v GitHubu jednou nastavit:
-**Settings → Pages → Build and deployment → Source: GitHub Actions**
+**One-time setup:** in GitHub go to **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 
-Hra pak běží na `https://hoisovicz.github.io/DrMax/`.
+The game then runs at `https://hoisovicz.github.io/DrMax/`.
 
-## Struktura projektu
+## Custom product images
+
+Box visuals are placeholder graphics drawn at runtime. Drop real product images into `public/products/` and they will replace the placeholders automatically.
+
+### How it works
+
+Each entry in `src/config/boxes.ts` has an optional `imageKey`:
+
+```ts
+box('small', 'Paralen', 'otc', 'paralen'),
+//                              ^^^^^^^^ → public/products/paralen.png
+```
+
+On scene preload, the game tries to load `public/products/{imageKey}.png` for every distinct key. If a file is missing, it silently falls back to the procedural placeholder. No code change needed — just drop the file and rebuild (or hot-reload in `npm run dev`).
+
+### Image guidelines
+
+- **Format:** PNG with transparent background works best
+- **Size:** roughly square or matching the box aspect ratio (cartons ~ 4:5, bottles ~ 3:8, blisters ~ 4:1)
+- **Resolution:** the game scales to the box footprint; ~256 × 256 px is plenty
+- **Naming:** lowercase, dash-separated, no diacritics — `vitamin-d.png`, `omega-3.png`
+
+### Where to source images legally
+
+- **DrMax Marketing / Brand portal** — for branded DrMax visuals (recommended for internal use)
+- **CC0 / royalty-free stock photos** — Pixabay, Pexels, Unsplash (search "medicine box", "blister pack", "supplement bottle")
+- **Wikimedia Commons** — many drug packaging photos under CC-BY / CC0
+- **AI generation** — DALL·E, Midjourney, Flux can produce stylized fictional packaging
+
+⚠️ **Do not** scrape product images from drmax.cz, lekarna.cz or manufacturer sites. Copyright belongs to the manufacturer (Bayer, GSK, Zentiva, …); even DrMax is licensed, not the rights holder.
+
+## Project structure
 
 ```
 src/
-├── main.ts              # Phaser game config
+├── main.ts                # Phaser game config (gravity, viewport)
 ├── scenes/
-│   └── GameScene.ts     # hlavní herní scéna (regály, fyzika, skóre)
+│   └── GameScene.ts       # main scene: shelves, physics, scoring, level ramp
 └── config/
-    ├── categories.ts    # definice kategorií regálů (barva, popis)
-    └── boxes.ts         # typy krabiček (tvar, kategorie, název)
+    ├── categories.ts      # shelf categories (color, name, description)
+    └── boxes.ts           # box types (shape, category, optional imageKey)
+public/
+└── products/              # drop product PNGs here (filename = imageKey)
 ```
 
-## Plán dalších iterací
+## Tunable knobs
 
-- [ ] Importovat loga / brand assets DrMax (placeholdery zatím procedurálně generované)
-- [ ] Skutečné názvy/balení produktů z DrMax katalogu
-- [ ] Zvuky (cinknutí při správném umístění, varování při chybě)
-- [ ] Mobilní touch ovládání (vyzkoušet, zda mouseSpring funguje)
-- [ ] Power-ups (lupa kategorie, zpomalení času)
+- `INITIAL_LIVES` (in `GameScene.ts`) — number of mistakes allowed
+- `spawnInterval` initial value — milliseconds between spawns
+- `levelTimer` delay — how often level-up fires
+- World gravity in `main.ts` — controls fall speed
+- `frictionAir` in `createBox` — how much boxes drift down vs. fall fast
+- `pickBoxForLevel()` in `boxes.ts` — which shapes/categories unlock at which level
+
+## Roadmap
+
+- [ ] Real DrMax brand assets (via internal marketing channel)
+- [ ] Sound effects (correct placement, wrong shelf, level up)
+- [ ] Mobile touch controls (test if `mouseSpring` works reliably on touchscreens)
+- [ ] Power-ups (slow-mo, magnify-category, auto-route)
 - [ ] Online leaderboard
-
-## Konfigurace
-
-Levely a obtížnost se ladí v `src/scenes/GameScene.ts`:
-
-- `INITIAL_LIVES` — kolik chyb hráč dostane
-- `spawnInterval` — počáteční interval spawnu (ms)
-- `levelTimer` delay — jak často level up
-- V `pickBoxForLevel()` v `boxes.ts` se postupně odemykají složitější typy
-
-Kategorie a léky se přidávají v `src/config/categories.ts` a `src/config/boxes.ts`.
+- [ ] Conveyor mechanic (boxes ride a moving belt before falling)
