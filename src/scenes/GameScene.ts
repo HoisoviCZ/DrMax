@@ -2,6 +2,13 @@ import Phaser from 'phaser';
 import { CATEGORIES, CATEGORY_ORDER, type CategoryId } from '../config/categories';
 import { BOX_TYPES, pickBoxForLevel, type BoxType } from '../config/boxes';
 import { GAME_WIDTH, GAME_HEIGHT } from '../main';
+import {
+  fetchTopScores,
+  submitScore,
+  qualifiesForTop,
+  isLeaderboardEnabled,
+  type ScoreEntry,
+} from '../services/leaderboard';
 
 interface BoxEntry {
   body: Phaser.Physics.Matter.Image;
@@ -43,6 +50,12 @@ export class GameScene extends Phaser.Scene {
   private levelText!: Phaser.GameObjects.Text;
   private bestScore = 0;
 
+  private initialsState = { letters: ['A', 'A', 'A'] as string[], cursor: 0 };
+  private initialsKeyHandler: ((e: KeyboardEvent) => void) | null = null;
+  private initialsTextObjects: Phaser.GameObjects.Text[] = [];
+  private initialsCursorObj: Phaser.GameObjects.Rectangle | null = null;
+  private leaderboardPanelObjects: Phaser.GameObjects.GameObject[] = [];
+
   constructor() {
     super('GameScene');
   }
@@ -70,6 +83,11 @@ export class GameScene extends Phaser.Scene {
     this.gameOver = false;
     this.draggingBody = null;
     this.bestScore = Number(localStorage.getItem('drmax-best') ?? '0');
+    this.initialsState = { letters: ['A', 'A', 'A'], cursor: 0 };
+    this.initialsKeyHandler = null;
+    this.initialsTextObjects = [];
+    this.initialsCursorObj = null;
+    this.leaderboardPanelObjects = [];
 
     this.matter.world.setBounds(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
@@ -400,7 +418,7 @@ export class GameScene extends Phaser.Scene {
           if (entry.body.active) entry.body.destroy();
         },
       });
-      if (this.lives <= 0) this.endGame();
+      if (this.lives <= 0) void this.endGame();
     }
   }
 
@@ -411,7 +429,7 @@ export class GameScene extends Phaser.Scene {
     this.flashAt(entry.body.x, entry.body.y, '#ef4444', 'Off the shelf!');
     if (entry.label.active) entry.label.destroy();
     if (entry.body.active) entry.body.destroy();
-    if (this.lives <= 0) this.endGame();
+    if (this.lives <= 0) void this.endGame();
   }
 
   private flashAt(x: number, y: number, colorHex: string, text: string) {
@@ -459,7 +477,7 @@ export class GameScene extends Phaser.Scene {
     });
   };
 
-  private endGame() {
+  private async endGame() {
     this.gameOver = true;
     this.spawnTimer.remove();
     this.levelTimer.remove();
@@ -469,36 +487,299 @@ export class GameScene extends Phaser.Scene {
       localStorage.setItem('drmax-best', String(this.bestScore));
     }
 
-    this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.75).setDepth(1000);
+    this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.78).setDepth(1000);
 
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 110, 'GAME OVER', {
+    this.add.text(GAME_WIDTH / 2, 70, 'GAME OVER', {
       fontFamily: 'system-ui, sans-serif',
-      fontSize: '64px',
+      fontSize: '52px',
       color: '#ffffff',
       fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(1001);
 
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 30, `Score: ${this.score}   ·   Level: ${this.level}`, {
+    this.add.text(GAME_WIDTH / 2, 130, `Score: ${this.score}  ·  Level: ${this.level}`, {
       fontFamily: 'system-ui, sans-serif',
-      fontSize: '28px',
+      fontSize: '24px',
       color: '#fbbf24',
     }).setOrigin(0.5).setDepth(1001);
 
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 10, `Best score: ${this.bestScore}`, {
+    const leftX = GAME_WIDTH * 0.27;
+    const playAgainY = GAME_HEIGHT - 70;
+
+    if (!isLeaderboardEnabled) {
+      this.add.text(leftX, GAME_HEIGHT / 2 - 20, `Best score (this device):\n${this.bestScore}`, {
+        fontFamily: 'system-ui, sans-serif',
+        fontSize: '18px',
+        color: '#9ca3af',
+        align: 'center',
+      }).setOrigin(0.5).setDepth(1001);
+      this.add.text(leftX, GAME_HEIGHT / 2 + 40, 'Online leaderboard not configured\n(see README → Supabase)', {
+        fontFamily: 'system-ui, sans-serif',
+        fontSize: '12px',
+        color: '#6b7280',
+        align: 'center',
+      }).setOrigin(0.5).setDepth(1001);
+      this.addPlayAgainButton(leftX, playAgainY);
+      return;
+    }
+
+    const loadingText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Loading leaderboard…', {
       fontFamily: 'system-ui, sans-serif',
       fontSize: '18px',
       color: '#9ca3af',
     }).setOrigin(0.5).setDepth(1001);
 
-    const btn = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 80, '▶  Play again', {
+    let top: ScoreEntry[];
+    try {
+      top = await fetchTopScores();
+    } catch (err) {
+      console.error('Leaderboard fetch failed', err);
+      loadingText.setText('Leaderboard offline\n(check Supabase setup)');
+      loadingText.setColor('#ef4444');
+      loadingText.setAlign('center');
+      this.addPlayAgainButton(leftX, playAgainY);
+      return;
+    }
+    loadingText.destroy();
+
+    const qualifies = qualifiesForTop(this.score, top);
+
+    if (qualifies) {
+      this.showQualifyingFlow(top, leftX);
+    } else {
+      this.add.text(leftX, 200, 'Better luck next time!', {
+        fontFamily: 'system-ui, sans-serif',
+        fontSize: '20px',
+        color: '#9ca3af',
+      }).setOrigin(0.5).setDepth(1001);
+      this.add.text(leftX, 240, `Best (this device): ${this.bestScore}`, {
+        fontFamily: 'system-ui, sans-serif',
+        fontSize: '14px',
+        color: '#6b7280',
+      }).setOrigin(0.5).setDepth(1001);
+    }
+
+    this.showLeaderboardPanel(top);
+    this.addPlayAgainButton(leftX, playAgainY);
+  }
+
+  private showQualifyingFlow(top: ScoreEntry[], x: number) {
+    let y = 195;
+
+    this.add.text(x, y, '🏆 NEW HIGH SCORE! 🏆', {
       fontFamily: 'system-ui, sans-serif',
-      fontSize: '24px',
+      fontSize: '22px',
+      color: '#fbbf24',
+      fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(1001);
+    y += 45;
+
+    this.add.text(x, y, 'Enter your initials:', {
+      fontFamily: 'system-ui, sans-serif',
+      fontSize: '16px',
+      color: '#ffffff',
+    }).setOrigin(0.5).setDepth(1001);
+    y += 50;
+
+    const slotW = 56;
+    const slotGap = 12;
+    const totalW = 3 * slotW + 2 * slotGap;
+    const startX = x - totalW / 2 + slotW / 2;
+    const slotsY = y;
+
+    for (let i = 0; i < 3; i++) {
+      const slotX = startX + i * (slotW + slotGap);
+      this.add.rectangle(slotX, slotsY, slotW, 70, 0x1f2937).setStrokeStyle(2, 0xffffff).setDepth(1001);
+      const txt = this.add.text(slotX, slotsY, this.initialsState.letters[i] ?? 'A', {
+        fontFamily: 'monospace',
+        fontSize: '40px',
+        color: '#fbbf24',
+        fontStyle: 'bold',
+      }).setOrigin(0.5).setDepth(1002);
+      this.initialsTextObjects.push(txt);
+    }
+
+    const cursorX = startX + this.initialsState.cursor * (slotW + slotGap);
+    this.initialsCursorObj = this.add
+      .rectangle(cursorX, slotsY + 40, slotW - 8, 4, 0xfbbf24)
+      .setDepth(1003);
+
+    y += 70;
+    this.add.text(x, y, 'A–Z · ← → to move · ⌫ Backspace · ⏎ Enter', {
+      fontFamily: 'system-ui, sans-serif',
+      fontSize: '12px',
+      color: '#9ca3af',
+    }).setOrigin(0.5).setDepth(1001);
+
+    this.initialsKeyHandler = (e: KeyboardEvent) => {
+      if (this.initialsKeyHandler === null) return;
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        void this.submitInitials(top, x);
+        return;
+      }
+      if (e.key === 'Backspace') {
+        e.preventDefault();
+        const c = Math.max(0, this.initialsState.cursor - 1);
+        this.initialsState.letters[c] = 'A';
+        this.initialsState.cursor = c;
+        this.refreshInitialsDisplay(startX, slotW, slotGap, slotsY);
+        return;
+      }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        this.initialsState.cursor = Math.max(0, this.initialsState.cursor - 1);
+        this.refreshInitialsDisplay(startX, slotW, slotGap, slotsY);
+        return;
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        this.initialsState.cursor = Math.min(2, this.initialsState.cursor + 1);
+        this.refreshInitialsDisplay(startX, slotW, slotGap, slotsY);
+        return;
+      }
+      if (/^[a-zA-Z]$/.test(e.key)) {
+        e.preventDefault();
+        this.initialsState.letters[this.initialsState.cursor] = e.key.toUpperCase();
+        this.initialsState.cursor = Math.min(2, this.initialsState.cursor + 1);
+        this.refreshInitialsDisplay(startX, slotW, slotGap, slotsY);
+      }
+    };
+
+    this.input.keyboard?.on('keydown', this.initialsKeyHandler);
+  }
+
+  private refreshInitialsDisplay(startX: number, slotW: number, slotGap: number, slotsY: number) {
+    for (let i = 0; i < 3; i++) {
+      this.initialsTextObjects[i]?.setText(this.initialsState.letters[i] ?? 'A');
+    }
+    if (this.initialsCursorObj) {
+      const c = Math.min(this.initialsState.cursor, 2);
+      this.initialsCursorObj.x = startX + c * (slotW + slotGap);
+      this.initialsCursorObj.y = slotsY + 40;
+    }
+  }
+
+  private async submitInitials(currentTop: ScoreEntry[], x: number) {
+    const initials = this.initialsState.letters.join('');
+
+    if (this.initialsKeyHandler) {
+      this.input.keyboard?.off('keydown', this.initialsKeyHandler);
+      this.initialsKeyHandler = null;
+    }
+
+    this.initialsTextObjects.forEach((o) => o.destroy());
+    this.initialsTextObjects = [];
+    this.initialsCursorObj?.destroy();
+    this.initialsCursorObj = null;
+
+    const statusY = 380;
+    const submitting = this.add.text(x, statusY, 'Submitting…', {
+      fontFamily: 'system-ui, sans-serif',
+      fontSize: '16px',
+      color: '#9ca3af',
+    }).setOrigin(0.5).setDepth(1001);
+
+    let entry: ScoreEntry | null = null;
+    try {
+      entry = await submitScore(initials, this.score, this.level);
+    } catch (err) {
+      console.error('Submit failed', err);
+      submitting.setText('Submit failed — try playing again');
+      submitting.setColor('#ef4444');
+      return;
+    }
+
+    submitting.destroy();
+    this.add.text(x, statusY, `Saved as ${initials}`, {
+      fontFamily: 'system-ui, sans-serif',
+      fontSize: '16px',
+      color: '#22c55e',
+      fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(1001);
+
+    let updated: ScoreEntry[];
+    try {
+      updated = await fetchTopScores();
+    } catch {
+      updated = currentTop;
+    }
+
+    this.clearLeaderboardPanel();
+    this.showLeaderboardPanel(updated, entry?.id);
+  }
+
+  private clearLeaderboardPanel() {
+    this.leaderboardPanelObjects.forEach((o) => o.destroy());
+    this.leaderboardPanelObjects = [];
+  }
+
+  private showLeaderboardPanel(scores: ScoreEntry[], highlightId?: number) {
+    const x = GAME_WIDTH * 0.7;
+    const top = 90;
+    const rowH = 23;
+
+    const titleObj = this.add.text(x, top, '🏆  LEADERBOARD  🏆', {
+      fontFamily: 'system-ui, sans-serif',
+      fontSize: '22px',
+      color: '#fbbf24',
+      fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(1001);
+    this.leaderboardPanelObjects.push(titleObj);
+
+    if (scores.length === 0) {
+      const empty = this.add.text(x, top + 60, 'No scores yet — be the first!', {
+        fontFamily: 'system-ui, sans-serif',
+        fontSize: '16px',
+        color: '#9ca3af',
+      }).setOrigin(0.5).setDepth(1001);
+      this.leaderboardPanelObjects.push(empty);
+      return;
+    }
+
+    const headerY = top + 38;
+    const header = this.add.text(x, headerY, '##  INI    SCORE  LV', {
+      fontFamily: 'monospace',
+      fontSize: '13px',
+      color: '#9ca3af',
+      fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(1001);
+    this.leaderboardPanelObjects.push(header);
+
+    for (let i = 0; i < scores.length; i++) {
+      const e = scores[i]!;
+      const rank = String(i + 1).padStart(2, '0');
+      const ini = e.initials.padEnd(3, ' ');
+      const sc = String(e.score).padStart(6, ' ');
+      const lv = String(e.level).padStart(2, ' ');
+      const line = `${rank}  ${ini}  ${sc}   ${lv}`;
+      const isMe = highlightId !== undefined && e.id === highlightId;
+      const rowY = headerY + 22 + i * rowH;
+      const txt = this.add.text(x, rowY, line, {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: isMe ? '#fbbf24' : '#e5e7eb',
+        fontStyle: isMe ? 'bold' : 'normal',
+      }).setOrigin(0.5).setDepth(1001);
+      this.leaderboardPanelObjects.push(txt);
+    }
+  }
+
+  private addPlayAgainButton(x: number, y: number) {
+    const btn = this.add.text(x, y, '▶  Play again', {
+      fontFamily: 'system-ui, sans-serif',
+      fontSize: '22px',
       color: '#1f2937',
       backgroundColor: '#ffffff',
       padding: { x: 24, y: 12 },
       fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(1001).setInteractive({ useHandCursor: true });
 
-    btn.on('pointerdown', () => this.scene.restart());
+    btn.on('pointerdown', () => {
+      if (this.initialsKeyHandler) {
+        this.input.keyboard?.off('keydown', this.initialsKeyHandler);
+        this.initialsKeyHandler = null;
+      }
+      this.scene.restart();
+    });
   }
 }
