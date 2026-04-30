@@ -52,17 +52,17 @@ Each entry in `src/config/boxes.ts` has an optional `imageKey`:
 
 ```ts
 box('small', 'Paralen', 'otc', 'paralen'),
-//                              ^^^^^^^^ → public/products/paralen.png
+//                              ^^^^^^^^ → public/products/paralen.{webp,png}
 ```
 
-On scene preload, the game tries to load `public/products/{imageKey}.png` for every distinct key. If a file is missing, it silently falls back to the procedural placeholder. No code change needed — just drop the file and rebuild (or hot-reload in `npm run dev`).
+On scene preload, the game tries to load `public/products/{imageKey}.webp` and `public/products/{imageKey}.png` for every distinct key. **WebP is preferred** when both exist; PNG is the fallback; if neither file is present, the game silently falls back to the procedural placeholder. No code change needed — just drop the file and rebuild (or hot-reload in `npm run dev`).
 
 ### Image guidelines
 
-- **Format:** PNG with transparent background works best
+- **Format:** `.webp` (preferred for smaller files) or `.png`. Transparent background works best.
 - **Size:** roughly square or matching the box aspect ratio (cartons ~ 4:5, bottles ~ 3:8, blisters ~ 4:1)
 - **Resolution:** the game scales to the box footprint; ~256 × 256 px is plenty
-- **Naming:** lowercase, dash-separated, no diacritics — `vitamin-d.png`, `omega-3.png`
+- **Naming:** lowercase, dash-separated, no diacritics — `vitamin-d.webp`, `omega-3.png`
 
 ### Where to source images legally
 

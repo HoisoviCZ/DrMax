@@ -1,6 +1,6 @@
 # Product images
 
-Drop PNG files in this folder to replace the procedural placeholder graphics in the game.
+Drop **WebP** or **PNG** files in this folder to replace the procedural placeholder graphics in the game. WebP is preferred when both exist (smaller file size, better compression).
 
 ## Filename = imageKey
 
@@ -30,10 +30,25 @@ The game looks up files by the `imageKey` field on each entry in `src/config/box
 
 ## Image guidelines
 
-- **PNG** with transparent background
+- **Format:** `.webp` preferred, `.png` works as fallback. Both can coexist for the same product — the game picks WebP when present.
+- **Transparent background** recommended (lossless WebP or PNG-32)
 - **~256 × 256 px** is plenty (the game scales to the box footprint)
 - Aspect ratio close to the shape (cartons ~ 4:5, bottles ~ 3:8, blisters ~ 4:1)
 - Lowercase filename, dashes, no diacritics
+
+### Converting JPG/PNG to WebP
+
+If your source is a JPG or PNG, convert with `cwebp` (from `libwebp`):
+
+```bash
+# Lossless from PNG with alpha
+cwebp -lossless paralen.png -o paralen.webp
+
+# Lossy with quality 85 (good balance)
+cwebp -q 85 paralen.jpg -o paralen.webp
+```
+
+Or online: https://squoosh.app — drag in image, export as WebP, save here.
 
 ## Missing files are fine
 

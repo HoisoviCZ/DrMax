@@ -52,8 +52,12 @@ export class GameScene extends Phaser.Scene {
     for (const t of BOX_TYPES) {
       if (!t.imageKey || seen.has(t.imageKey)) continue;
       seen.add(t.imageKey);
-      this.load.image(t.imageKey, `products/${t.imageKey}.png`);
+      this.load.image(`${t.imageKey}.webp`, `products/${t.imageKey}.webp`);
+      this.load.image(`${t.imageKey}.png`, `products/${t.imageKey}.png`);
     }
+    this.load.on('loaderror', () => {
+      // Missing optional product image — silently fall back to .png or procedural placeholder.
+    });
   }
 
   create() {
@@ -220,8 +224,11 @@ export class GameScene extends Phaser.Scene {
   };
 
   private getBoxTextureKey(type: BoxType): string {
-    if (type.imageKey && this.textures.exists(type.imageKey)) {
-      return type.imageKey;
+    if (type.imageKey) {
+      const webpKey = `${type.imageKey}.webp`;
+      if (this.textures.exists(webpKey)) return webpKey;
+      const pngKey = `${type.imageKey}.png`;
+      if (this.textures.exists(pngKey)) return pngKey;
     }
     const key = `box-${type.shape}-${type.category}-${type.label}`;
     if (this.textures.exists(key)) return key;
@@ -281,7 +288,9 @@ export class GameScene extends Phaser.Scene {
 
   private createBox(x: number, y: number, type: BoxType) {
     const texKey = this.getBoxTextureKey(type);
-    const usingExternal = texKey === type.imageKey;
+    const usingExternal = type.imageKey != null && (
+      texKey === `${type.imageKey}.webp` || texKey === `${type.imageKey}.png`
+    );
 
     const body = this.matter.add.image(x, y, texKey, undefined, {
       restitution: 0.05,
